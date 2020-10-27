@@ -20,11 +20,11 @@ int main( int argc, char **argv ) {
 
     std::string line;
     std::string text;
-    //auto load_start = std::chrono::system_clock::now();
-    std::ifstream myfile( "/home/td/dev/Bachelorarbeit/data/simulated/ecoli/ecoli1.fna" );
+    // auto load_start = std::chrono::system_clock::now();
+    std::ifstream myfile( "ecoli1.fna" );
     auto record = bioio::read_fasta( myfile );
     std::cout << record.size() << std::endl;
-    //auto load_end = std::chrono::system_clock::now();
+    // auto load_end = std::chrono::system_clock::now();
     auto append_start = std::chrono::system_clock::now();
     for ( const auto &it : record ) {
         text.append( it.sequence );
@@ -51,14 +51,16 @@ int main( int argc, char **argv ) {
     int kmerL = 31;
     unsigned int thread_count = 4;
 
-    auto graph = DeBruijnGraphAlt::create( std::move(text), kmerL, thread_count );
+    auto graph = DeBruijnGraphAlt::create( std::move( text ), kmerL, thread_count );
 
     auto build_end = std::chrono::system_clock::now();
+
+    std::chrono::duration<double> diff = (build_end - build_start);
+    auto seconds = diff.count();
+    LOG( INFO ) << "Text buidling took: " << seconds << " seconds";
     //------------------------------------------------------------------------------------------------------------------
+
     // auto a = DeBruijnGraphAlt( fail3, 4 );
-    LOG( INFO ) << "Text building took: " +
-                       std::to_string( std::chrono::duration<double>( ( build_end - build_start ) ).count() / ( 60 ) ) +
-                       " minutes";
     // std::cout << "Graph build" << a.kmerToNode.size() << std::endl;
     // auto tour = a.hasEulerianWalkdOrCycle();
     // LOG(INFO) << "HEAD:     " + a.head->kmer ;
