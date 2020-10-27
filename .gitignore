@@ -10,3 +10,9 @@ Makefile
 
 # project binary
 KielAssembler
+
+# test data
+*.fna
+
+# logs
+*.log
