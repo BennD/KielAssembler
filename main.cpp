@@ -5,14 +5,14 @@
 #include "lib/cxxopts.h"
 #include "lib/easylogging++.h"
 
+#include <cassert>
 #include <chrono>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sys/resource.h>
 #include <thread>
 #include <vector>
-#include <cmath>
-#include <cassert>
 
 INITIALIZE_EASYLOGGINGPP
 
@@ -20,11 +20,11 @@ int main( int argc, char **argv ) {
 
     std::string line;
     std::string text;
-    auto load_start = std::chrono::system_clock::now();
+    //auto load_start = std::chrono::system_clock::now();
     std::ifstream myfile( "/home/td/dev/Bachelorarbeit/data/simulated/ecoli/ecoli1.fna" );
     auto record = bioio::read_fasta( myfile );
     std::cout << record.size() << std::endl;
-    auto load_end = std::chrono::system_clock::now();
+    //auto load_end = std::chrono::system_clock::now();
     auto append_start = std::chrono::system_clock::now();
     for ( const auto &it : record ) {
         text.append( it.sequence );
@@ -47,34 +47,22 @@ int main( int argc, char **argv ) {
 
     //------------------------------------------------------------------------------------------------------------------
     auto build_start = std::chrono::system_clock::now();
+
     int kmerL = 31;
     unsigned int thread_count = 4;
-    std::vector<std::thread> threads;
-    int length = std::ceil(text.length()/thread_count);
 
-    assert(length > kmerL);
-    std::vector<std::unique_ptr<DeBruijnGraphAlt>> graphs;
-    for(int i =0 ; i < text.length()-kmerL; i+= (length-kmerL))
-    {
-        auto seq = text.substr(i, length );
-        graphs.push_back(std::make_unique<DeBruijnGraphAlt>(DeBruijnGraphAlt(seq, kmerL)));
-        threads.emplace_back(&DeBruijnGraphAlt::build, graphs.back().get());
-    }
+    auto graph = DeBruijnGraphAlt::create( std::move(text), kmerL, thread_count );
 
-    for(auto& it : threads)
-    {
-        it.join();
-    }
     auto build_end = std::chrono::system_clock::now();
     //------------------------------------------------------------------------------------------------------------------
-    //auto a = DeBruijnGraphAlt( fail3, 4 );
+    // auto a = DeBruijnGraphAlt( fail3, 4 );
     LOG( INFO ) << "Text building took: " +
                        std::to_string( std::chrono::duration<double>( ( build_end - build_start ) ).count() / ( 60 ) ) +
                        " minutes";
     // std::cout << "Graph build" << a.kmerToNode.size() << std::endl;
-    //auto tour = a.hasEulerianWalkdOrCycle();
+    // auto tour = a.hasEulerianWalkdOrCycle();
     // LOG(INFO) << "HEAD:     " + a.head->kmer ;
-    //a.toDot();
+    // a.toDot();
     // TODO add tour to_dot
     // TODO find out if g is multimap or just 1 to many
     return 0;
