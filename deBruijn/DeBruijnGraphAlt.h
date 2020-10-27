@@ -47,9 +47,9 @@ class DeBruijnGraphAlt {
     DeBruijnGraphAlt( const std::string_view sequenceToAssemble, size_t kmerPairLength )
         : m_kmer_length( kmerPairLength - 1 ) {
 
-        for ( size_t i = 0; i < m_sequence.size() - m_kmer_length; i++ ) {
-            auto kmerL = std::string_view( m_sequence.data() + i, m_kmer_length );
-            auto kmerR = std::string_view( m_sequence.data() + i + 1, m_kmer_length );
+        for ( size_t i = 0; i < sequenceToAssemble.size() - m_kmer_length; i++ ) {
+            auto kmerL = sequenceToAssemble.substr( i, m_kmer_length );
+            auto kmerR = sequenceToAssemble.substr( i + 1, m_kmer_length );
             auto iNodeL = find_or_create_node( kmerL );
             auto iNodeR = find_or_create_node( kmerR );
             m_edgesOut[iNodeL].push_back( iNodeR );
