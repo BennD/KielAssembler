@@ -5,19 +5,20 @@
 #ifndef KIELASSEMBLER_GRAPH_H
 #define KIELASSEMBLER_GRAPH_H
 
+#include <cassert>
 #include <cmath>
 #include <fstream>
-#include <limits>
-#include <map>
-#include <string>
-#include <string_view>
-#include <unordered_map>
-#include <vector>
-
 #include <functional>
 #include <future>
+#include <iostream>
+#include <limits>
+#include <map>
 #include <sstream>
+#include <string>
+#include <string_view>
 #include <thread>
+#include <unordered_map>
+#include <vector>
 
 class DeBruijnGraphAlt {
   public:
@@ -47,6 +48,9 @@ class DeBruijnGraphAlt {
     DeBruijnGraphAlt( const std::string_view sequenceToAssemble, size_t kmerPairLength )
         : m_kmer_length( kmerPairLength - 1 ) {
 
+        auto thread_id = std::this_thread::get_id;
+        std::cout << "Started " << thread_id << std::endl;
+
         for ( size_t i = 0; i < sequenceToAssemble.size() - m_kmer_length; i++ ) {
             auto kmerL = sequenceToAssemble.substr( i, m_kmer_length );
             auto kmerR = sequenceToAssemble.substr( i + 1, m_kmer_length );
@@ -56,6 +60,10 @@ class DeBruijnGraphAlt {
             m_edgesIn[iNodeR].push_back( iNodeL );
         }
 
+        std::cout << "Finished " << thread_id << std::endl;
+
+        // TODO take this into it's own private function which will be called on the last graph in create()
+        /*
         // check if graph has an eulerian walk/cycle
         // find head/tail
         {
@@ -81,7 +89,11 @@ class DeBruijnGraphAlt {
             m_hasEulerianWalk = ( neither == 0 && semiBalanced == 2 );
             m_hasEulerianCycle = ( neither == 0 && semiBalanced == 0 );
         }
+        */
     }
+
+    DeBruijnGraphAlt( const DeBruijnGraphAlt & ) = delete;
+    DeBruijnGraphAlt operator=( const DeBruijnGraphAlt & ) = delete;
 
     void set_sequence( std::string &&sequence ) {
         m_sequence = sequence;
@@ -150,9 +162,69 @@ class DeBruijnGraphAlt {
     }
 
     static DeBruijnGraphAlt create( std::string &&sequence, size_t kmerPairLength, size_t thread_count = 0 ) {
-        auto graph = DeBruijnGraphAlt( std::string_view( sequence ), kmerPairLength );
-        graph.set_sequence( std::move( sequence ) );
-        return graph;
+        if ( thread_count == 0 ) {
+            thread_count = 4;
+            // TODO do this in a smart way
+        }
+
+        // no multithreading if one thread is selected
+        if ( thread_count == 1 ) {
+            auto graph = DeBruijnGraphAlt( std::string_view( sequence ), kmerPairLength );
+            graph.set_sequence( std::move( sequence ) );
+            return graph;
+        }
+
+        // create sub views
+        std::vector<std::string_view> subViews;
+        {
+            auto sequenceView = std::string_view( sequence );
+            auto viewLength = sequenceView.size() / thread_count;
+
+            // create first view
+            subViews.push_back( sequenceView.substr( 0, viewLength ) );
+
+            for ( size_t i = 1; i < ( thread_count - 1 ); i++ ) {
+                // subsequent views overlap the previous views by one character
+                subViews.push_back( sequenceView.substr( ( i * viewLength ) - 1, viewLength ) );
+            }
+
+            // last view is longer if (sequence.size() % thread_count != 0)
+            // .substring() caps the view to the length of the sequence
+            auto lastIndex = thread_count - 1;
+            subViews.push_back(
+                sequenceView.substr( ( lastIndex * viewLength ) - 1, std::numeric_limits<size_t>::max() ) );
+        }
+
+        assert( subViews.size() == thread_count );
+
+        // generate sub graphs
+        std::vector<DeBruijnGraphAlt> subGraphs;
+        {
+            using Task = std::packaged_task<DeBruijnGraphAlt( std::string_view )>;
+
+            std::vector<std::future<DeBruijnGraphAlt>> futures;
+            auto lambda = [=]( std::string_view subSequence ) {
+                return DeBruijnGraphAlt( subSequence, kmerPairLength );
+            };
+
+            for ( auto view : subViews ) {
+                std::cout << view.size() << std::endl;
+                auto task = Task( lambda );
+                //futures.push_back( std::async( std::launch::async, lambda, view ) );
+                futures.push_back( task.get_future() );
+                std::thread( std::move( task ), view ).detach();
+                std::cout << "Started Thread" << std::endl;
+                // task( view );
+            }
+
+            for ( auto &future : futures ) {
+                subGraphs.emplace_back( future.get() );
+                std::cout << "Finished Thread" << std::endl;
+            }
+        }
+
+        // TODO merge
+        return std::move( subGraphs.front() );
     }
 
     bool is_eulerian() {

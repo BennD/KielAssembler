@@ -52,6 +52,7 @@ int main( int argc, char **argv ) {
     unsigned int thread_count = 4;
 
     auto graph = DeBruijnGraphAlt::create( std::move( text ), kmerL, thread_count );
+    //auto graph = DeBruijnGraphAlt::create( std::move( text ), kmerL, 1 );
 
     auto build_end = std::chrono::system_clock::now();
 
