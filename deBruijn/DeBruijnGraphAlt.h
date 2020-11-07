@@ -45,13 +45,12 @@ class DeBruijnGraphAlt {
     bool m_hasEulerianCycle;
 
   private:
-    DeBruijnGraphAlt( const std::string_view sequenceToAssemble, size_t kmerPairLength )
-        : m_kmer_length( kmerPairLength - 1 ) {
+    DeBruijnGraphAlt( const std::string_view sequenceToAssemble, size_t kmerLength ) : m_kmer_length( kmerLength ) {
 
-        auto thread_id = std::this_thread::get_id;
+        auto thread_id = std::this_thread::get_id();
         std::cout << "Started " << thread_id << std::endl;
 
-        for ( size_t i = 0; i < sequenceToAssemble.size() - m_kmer_length; i++ ) {
+        for ( size_t i = 0; i < sequenceToAssemble.size() - ( m_kmer_length + 1 ); i++ ) {
             auto kmerL = sequenceToAssemble.substr( i, m_kmer_length );
             auto kmerR = sequenceToAssemble.substr( i + 1, m_kmer_length );
             auto iNodeL = find_or_create_node( kmerL );
@@ -148,17 +147,16 @@ class DeBruijnGraphAlt {
     }
 
   public:
-    DeBruijnGraphAlt( DeBruijnGraphAlt &&graph ) {
-        m_sequence = graph.m_sequence;
-        m_kmer = graph.m_kmer;
-        m_kmerMap = graph.m_kmerMap;
-        m_edgesIn = graph.m_edgesIn;
-        m_edgesOut = graph.m_edgesOut;
-        m_isActive = graph.m_isActive;
-        m_mergedWith = graph.m_mergedWith;
-        m_head = graph.m_head;
-        m_tail = graph.m_tail;
-        m_kmer_length = graph.m_kmer_length;
+    DeBruijnGraphAlt( DeBruijnGraphAlt &&graph )
+        : m_sequence( std::move( graph.m_sequence ) )
+        , m_kmerMap( std::move( graph.m_kmerMap ) )
+        , m_kmer( std::move( graph.m_kmer ) )
+        , m_edgesIn( std::move( graph.m_edgesIn ) )
+        , m_edgesOut( std::move( graph.m_edgesOut ) )
+        , m_isActive( std::move( graph.m_isActive ) )
+        , m_head( graph.m_head )
+        , m_tail( graph.m_tail )
+        , m_kmer_length( graph.m_kmer_length ) {
     }
 
     static DeBruijnGraphAlt create( std::string &&sequence, size_t kmerPairLength, size_t thread_count = 0 ) {
@@ -210,16 +208,17 @@ class DeBruijnGraphAlt {
             for ( auto view : subViews ) {
                 std::cout << view.size() << std::endl;
                 auto task = Task( lambda );
-                //futures.push_back( std::async( std::launch::async, lambda, view ) );
-                futures.push_back( task.get_future() );
+                // futures.push_back( std::async( std::launch::async, lambda, view ) );
+                futures.emplace_back( task.get_future() );
                 std::thread( std::move( task ), view ).detach();
-                std::cout << "Started Thread" << std::endl;
                 // task( view );
             }
 
             for ( auto &future : futures ) {
+                future.wait();
+                std::cout << "Graph ready" << std::endl;
                 subGraphs.emplace_back( future.get() );
-                std::cout << "Finished Thread" << std::endl;
+                std::cout << "Received Graph" << std::endl;
             }
         }
 
