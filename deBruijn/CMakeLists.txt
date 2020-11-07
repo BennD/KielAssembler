@@ -1,6 +1,7 @@
 set(SOURCE
   ${SOURCE}
   ${CMAKE_CURRENT_SOURCE_DIR}/DeBruijnGraph.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/DeBruijnGraphAlt.cpp
   PARENT_SCOPE
 )
 
