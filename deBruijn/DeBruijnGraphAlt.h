@@ -40,7 +40,8 @@ class DeBruijnGraphAlt {
     DeBruijnGraphAlt( const DeBruijnGraphAlt & ) = delete;
     DeBruijnGraphAlt( DeBruijnGraphAlt &&graph ) = default;
 
-    DeBruijnGraphAlt operator=( const DeBruijnGraphAlt & ) = delete;
+    DeBruijnGraphAlt& operator=( const DeBruijnGraphAlt & ) = delete;
+    DeBruijnGraphAlt& operator=( DeBruijnGraphAlt && ) = default;
 
     /**
      * Generate graph.
