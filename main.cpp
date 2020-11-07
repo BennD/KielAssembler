@@ -3,7 +3,9 @@
 
 #include "lib/bioio.hpp"
 #include "lib/cxxopts.h"
-#include "lib/easylogging++.h"
+
+#include "spdlog/spdlog.h"
+#include "spdlog/stopwatch.h"
 
 #include <cassert>
 #include <chrono>
@@ -14,51 +16,57 @@
 #include <thread>
 #include <vector>
 
-INITIALIZE_EASYLOGGINGPP
-
 int main( int argc, char **argv ) {
 
-    std::string line;
+    // TODO add program option
+    // set log level to trace
+    spdlog::set_level( spdlog::level::trace );
+
+    // TODO add program option
+    unsigned int thread_count = 4;
+
+    // TODO add program option
+    std::string textFilePath = "ecoli1.fna";
+
+    // TODO add program option
+    int kmerL = 30;
+
+    //------------------------------------------------------------------------------------------------------------------
+
+    // load text from file
     std::string text;
-    // auto load_start = std::chrono::system_clock::now();
-    std::ifstream myfile( "ecoli1.fna" );
-    auto record = bioio::read_fasta( myfile );
-    std::cout << record.size() << std::endl;
-    // auto load_end = std::chrono::system_clock::now();
-    auto append_start = std::chrono::system_clock::now();
-    for ( const auto &it : record ) {
-        text.append( it.sequence );
+    {
+        spdlog::stopwatch sw;
+        std::ifstream myfile( textFilePath );
+        auto record = bioio::read_fasta( myfile );
+        for ( const auto &it : record ) {
+            text.append( it.sequence );
+        }
+
+        spdlog::info( "Record({}) loaded in {} seconds", record.size(), sw );
+        spdlog::info( "Text loaded:" );
+        spdlog::info( "Bytes    : {}", text.size() );
+        spdlog::info( "KiloBytes: {:.4f}", text.size() / 1024.0 );
+        spdlog::info( "MegaBytes: {:.4f}", text.size() / std::pow(1024, 2) );
+        spdlog::info( "GigaBytes: {:.4f}", text.size() / std::pow(1024, 3) );
     }
 
-    auto append_end = std::chrono::system_clock::now();
-    LOG( INFO ) << "Text appending took: " +
-                       std::to_string( std::chrono::duration<double>( append_end - append_start ).count() ) + "seconds";
-    LOG( INFO ) << "Text loaded: Length: " + std::to_string( text.length() );
-    LOG( INFO ) << "Bytes loaded for the text string: " + std::to_string( text.size() );
-    LOG( INFO ) << "KiloBytes loaded for the text string: " + std::to_string( text.size() / 1024.0 );
-    LOG( INFO ) << "MegaBytes loaded for the text string: " +
-                       std::to_string( (float)text.size() / ( 1024.0 * 1024.0 ) );
-    LOG( INFO ) << "GigaBytes loaded for the text string: " +
-                       std::to_string( (float)text.size() / ( 1024.0 * 1024.0 * 1024.0 ) );
     std::string fail = "AGGCCCTGAAGC";
     std::string fail2 = "TAAGCTGATGTT"; // 4 good, 3bad
     std::string fail3 = "ATGCTGTAGCTAGATATCGTAGCTATGCTAGCTAATAGCTATTTCGATGCGGTAGCTAGTGCTAGCATGCGTATGCATGCGTACGGCTAGCTAG"
                         "TAGAGCTCGACTACGACGACGAGAGGGCATCGACGATTAGAGACTAGCGACTACGAGCTAGCGACT";
 
     //------------------------------------------------------------------------------------------------------------------
-    auto build_start = std::chrono::system_clock::now();
 
-    int kmerL = 31;
-    unsigned int thread_count = 4;
+    {
+        spdlog::stopwatch sw;
 
-    auto graph = DeBruijnGraphAlt::create( std::move( text ), kmerL, thread_count );
-    //auto graph = DeBruijnGraphAlt::create( std::move( text ), kmerL, 1 );
+        auto graph = DeBruijnGraphAlt::create( std::move( text ), kmerL, thread_count );
+        // auto graph = DeBruijnGraphAlt::create( std::move( text ), kmerL, 1 );
 
-    auto build_end = std::chrono::system_clock::now();
+        spdlog::info( "Text buidling took: {} seconds", sw );
+    }
 
-    std::chrono::duration<double> diff = (build_end - build_start);
-    auto seconds = diff.count();
-    LOG( INFO ) << "Text buidling took: " << seconds << " seconds";
     //------------------------------------------------------------------------------------------------------------------
 
     // auto a = DeBruijnGraphAlt( fail3, 4 );
@@ -68,5 +76,4 @@ int main( int argc, char **argv ) {
     // a.toDot();
     // TODO add tour to_dot
     // TODO find out if g is multimap or just 1 to many
-    return 0;
 }

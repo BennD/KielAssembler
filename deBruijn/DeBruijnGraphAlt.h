@@ -20,6 +20,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "spdlog/spdlog.h"
+#include "spdlog/fmt/ostr.h" // overload << for std::thread::id
+
 class DeBruijnGraphAlt {
   public:
     using Hash = size_t;
@@ -48,7 +51,7 @@ class DeBruijnGraphAlt {
     DeBruijnGraphAlt( const std::string_view sequenceToAssemble, size_t kmerLength ) : m_kmer_length( kmerLength ) {
 
         auto thread_id = std::this_thread::get_id();
-        std::cout << "Started " << thread_id << std::endl;
+        spdlog::trace( "Thread {} Graph-build: started", thread_id );
 
         for ( size_t i = 0; i < sequenceToAssemble.size() - ( m_kmer_length + 1 ); i++ ) {
             auto kmerL = sequenceToAssemble.substr( i, m_kmer_length );
@@ -59,10 +62,13 @@ class DeBruijnGraphAlt {
             m_edgesIn[iNodeR].push_back( iNodeL );
         }
 
-        std::cout << "Finished " << thread_id << std::endl;
+        spdlog::trace( "Thread {} Graph-build: finished", thread_id );
+    }
 
-        // TODO take this into it's own private function which will be called on the last graph in create()
-        /*
+    DeBruijnGraphAlt( const DeBruijnGraphAlt & ) = delete;
+    DeBruijnGraphAlt operator=( const DeBruijnGraphAlt & ) = delete;
+
+    void calculate_graph_properties() {
         // check if graph has an eulerian walk/cycle
         // find head/tail
         {
@@ -88,11 +94,7 @@ class DeBruijnGraphAlt {
             m_hasEulerianWalk = ( neither == 0 && semiBalanced == 2 );
             m_hasEulerianCycle = ( neither == 0 && semiBalanced == 0 );
         }
-        */
     }
-
-    DeBruijnGraphAlt( const DeBruijnGraphAlt & ) = delete;
-    DeBruijnGraphAlt operator=( const DeBruijnGraphAlt & ) = delete;
 
     void set_sequence( std::string &&sequence ) {
         m_sequence = sequence;
@@ -159,10 +161,9 @@ class DeBruijnGraphAlt {
         , m_kmer_length( graph.m_kmer_length ) {
     }
 
-    static DeBruijnGraphAlt create( std::string &&sequence, size_t kmerLength, size_t thread_count = 0 ) {
+    static DeBruijnGraphAlt create( std::string &&sequence, size_t kmerLength, size_t thread_count = 1 ) {
         if ( thread_count == 0 ) {
-            thread_count = 4;
-            // TODO do this in a smart way
+            thread_count = 1;
         }
 
         // no multithreading if one thread is selected
@@ -207,7 +208,6 @@ class DeBruijnGraphAlt {
 
             for ( auto &future : futures ) {
                 subGraphs.emplace_back( future.get() );
-                std::cout << "Received Graph" << std::endl;
             }
         }
 

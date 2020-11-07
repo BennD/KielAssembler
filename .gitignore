@@ -3,6 +3,7 @@
 compile_commands.json
 
 # cmake files
+build
 CMakeCache.txt
 CMakeFiles
 cmake_install.cmake

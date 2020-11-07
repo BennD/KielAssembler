@@ -20,4 +20,5 @@ add_subdirectory(deBruijn)
 add_subdirectory(dataStructures)
 
 add_executable(${PROJECT_NAME} ${SOURCE} ${HEADERS})
+target_link_libraries(${PROJECT_NAME} PRIVATE spdlog::spdlog)
 target_compile_options(${PROJECT_NAME} PRIVATE -O3)
