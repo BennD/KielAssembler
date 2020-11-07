@@ -159,7 +159,7 @@ class DeBruijnGraphAlt {
         , m_kmer_length( graph.m_kmer_length ) {
     }
 
-    static DeBruijnGraphAlt create( std::string &&sequence, size_t kmerPairLength, size_t thread_count = 0 ) {
+    static DeBruijnGraphAlt create( std::string &&sequence, size_t kmerLength, size_t thread_count = 0 ) {
         if ( thread_count == 0 ) {
             thread_count = 4;
             // TODO do this in a smart way
@@ -167,7 +167,7 @@ class DeBruijnGraphAlt {
 
         // no multithreading if one thread is selected
         if ( thread_count == 1 ) {
-            auto graph = DeBruijnGraphAlt( std::string_view( sequence ), kmerPairLength );
+            auto graph = DeBruijnGraphAlt( std::string_view( sequence ), kmerLength );
             graph.set_sequence( std::move( sequence ) );
             return graph;
         }
@@ -183,14 +183,14 @@ class DeBruijnGraphAlt {
 
             for ( size_t i = 1; i < ( thread_count - 1 ); i++ ) {
                 // subsequent views overlap the previous views by one character
-                subViews.push_back( sequenceView.substr( ( i * viewLength ) - 1, viewLength ) );
+                subViews.push_back( sequenceView.substr( ( i * viewLength ) - kmerLength, viewLength ) );
             }
 
             // last view is longer if (sequence.size() % thread_count != 0)
             // .substring() caps the view to the length of the sequence
             auto lastIndex = thread_count - 1;
             subViews.push_back(
-                sequenceView.substr( ( lastIndex * viewLength ) - 1, std::numeric_limits<size_t>::max() ) );
+                sequenceView.substr( ( lastIndex * viewLength ) - kmerLength, std::numeric_limits<size_t>::max() ) );
         }
 
         assert( subViews.size() == thread_count );
@@ -198,25 +198,14 @@ class DeBruijnGraphAlt {
         // generate sub graphs
         std::vector<DeBruijnGraphAlt> subGraphs;
         {
-            using Task = std::packaged_task<DeBruijnGraphAlt( std::string_view )>;
-
             std::vector<std::future<DeBruijnGraphAlt>> futures;
-            auto lambda = [=]( std::string_view subSequence ) {
-                return DeBruijnGraphAlt( subSequence, kmerPairLength );
-            };
+            auto lambda = [=]( std::string_view subSequence ) { return DeBruijnGraphAlt( subSequence, kmerLength ); };
 
             for ( auto view : subViews ) {
-                std::cout << view.size() << std::endl;
-                auto task = Task( lambda );
-                // futures.push_back( std::async( std::launch::async, lambda, view ) );
-                futures.emplace_back( task.get_future() );
-                std::thread( std::move( task ), view ).detach();
-                // task( view );
+                futures.emplace_back( std::async( std::launch::async, lambda, view ) );
             }
 
             for ( auto &future : futures ) {
-                future.wait();
-                std::cout << "Graph ready" << std::endl;
                 subGraphs.emplace_back( future.get() );
                 std::cout << "Received Graph" << std::endl;
             }
