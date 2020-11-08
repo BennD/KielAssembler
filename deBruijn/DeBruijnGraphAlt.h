@@ -14,25 +14,73 @@
 class DeBruijnGraphAlt {
   public:
     using Hash = size_t;
-    using Index = size_t;
+    using KmerId = size_t;
 
-    static constexpr size_t NONE = std::numeric_limits<size_t>::max();
+    static constexpr size_t NotMerged = std::numeric_limits<size_t>::max();
 
+    /**
+     * Basis for all kmer string_views.
+     */
     std::string m_sequence;
-    // Maps hashes to ids
-    std::unordered_map<Hash, Index> m_kmerMap;
+
+    /**
+     * Maps hashes to kmer ids.
+     */
+    std::unordered_map<Hash, KmerId> m_kmerMap;
+
+    /**
+     * Maps kmer ids to kmers.
+     */
     std::vector<std::string_view> m_kmer;
-    std::vector<std::vector<Index>> m_edgesIn;
-    std::vector<std::vector<Index>> m_edgesOut;
-    std::vector<Index> m_mergedWith;
+
+    /**
+     * List all ingoing egdges.
+     * edges[i][j] -> edges[i]
+     */
+    std::vector<std::vector<KmerId>> m_edgesIn;
+
+    /**
+     * List all outgoing egdges.
+     * edges[i] -> edges[i][j]
+     */
+    std::vector<std::vector<KmerId>> m_edgesOut;
+
+    /**
+     * Kmer nodes can be chained with other kmer nodes.
+     * DeBruijngraphalt::NotMerged if node has not been chained to another node.
+     */
+    std::vector<KmerId> m_mergedWith;
+
+    /**
+     * Kmer nodes are dead once they have been absorbed by another kmer node.
+     */
     std::vector<bool> m_isActive;
 
+    /**
+     * Head of the graph. Needed for eulerian cycle.
+     */
     size_t m_head;
+
+    /**
+     * Tail of the graph. Needed for X.
+     * TODO
+     */
     size_t m_tail;
 
+    /**
+     * Kmer length.
+     * TODO does this have any meaning?
+     */
     size_t m_kmer_length;
 
+    /**
+     * True if graph has an eulerian walk.
+     */
     bool m_hasEulerianWalk;
+
+    /**
+     * True if graph has an eulerian cycle.
+     */
     bool m_hasEulerianCycle;
 
   public:
@@ -40,8 +88,8 @@ class DeBruijnGraphAlt {
     DeBruijnGraphAlt( const DeBruijnGraphAlt & ) = delete;
     DeBruijnGraphAlt( DeBruijnGraphAlt &&graph ) = default;
 
-    DeBruijnGraphAlt& operator=( const DeBruijnGraphAlt & ) = delete;
-    DeBruijnGraphAlt& operator=( DeBruijnGraphAlt && ) = default;
+    DeBruijnGraphAlt &operator=( const DeBruijnGraphAlt & ) = delete;
+    DeBruijnGraphAlt &operator=( DeBruijnGraphAlt && ) = default;
 
     /**
      * Generate graph.
@@ -82,6 +130,13 @@ class DeBruijnGraphAlt {
   private:
     DeBruijnGraphAlt( const std::string_view sequenceToAssemble, size_t kmerLength );
 
+    /**
+     * Needs to be run once after graph has been assembled/merged. Sets
+     * - head
+     * - tail
+     * - has eulerian cycle
+     * - has eulerian walk
+     */
     void calculate_graph_properties();
     void set_sequence( std::string &&sequence );
     size_t find_or_create_node( std::string_view kmer );

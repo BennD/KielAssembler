@@ -81,7 +81,7 @@ size_t DeBruijnGraphAlt::create_node( std::string_view kmer ) {
     m_kmer.emplace_back( kmer );
     m_edgesIn.emplace_back();
     m_edgesOut.emplace_back();
-    m_mergedWith.emplace_back( NONE );
+    m_mergedWith.emplace_back( NotMerged );
     m_isActive.emplace_back( true );
 
     return index;
