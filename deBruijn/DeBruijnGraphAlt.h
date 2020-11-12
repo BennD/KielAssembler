@@ -6,6 +6,7 @@
 #define KIELASSEMBLER_GRAPH_H
 
 #include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -32,6 +33,11 @@ class DeBruijnGraphAlt {
      * Maps kmer ids to kmers.
      */
     std::vector<std::string_view> m_kmer;
+
+    /**
+     * Maps kmer ids to kmer hashes.
+     */
+    std::vector<Hash> m_kmerHashes;
 
     /**
      * List all ingoing egdges.
@@ -74,12 +80,12 @@ class DeBruijnGraphAlt {
     size_t m_kmer_length;
 
     /**
-     * True if graph has an eulerian walk.
+     * True if graph has a eulerian walk.
      */
     bool m_hasEulerianWalk;
 
     /**
-     * True if graph has an eulerian cycle.
+     * True if graph has a eulerian cycle.
      */
     bool m_hasEulerianCycle;
 
@@ -139,13 +145,15 @@ class DeBruijnGraphAlt {
      */
     void calculate_graph_properties();
     void set_sequence( std::string &&sequence );
-    size_t find_or_create_node( std::string_view kmer );
-    size_t create_node( std::string_view kmer );
+    size_t find_or_create_node( std::string_view kmer, std::optional<Hash> hashOpt = std::nullopt );
+    size_t create_node( std::string_view kmer, Hash hash );
     bool is_node_balanced( size_t index ) const;
     bool is_node_semi_balanced( size_t index ) const;
     size_t get_node_degree( size_t index ) const;
     size_t get_node_in_degree( size_t index ) const;
     size_t get_node_out_degree( size_t index ) const;
+
+    void merge_graph( const DeBruijnGraphAlt &otherGraph );
 };
 
 #endif // KIELASSEMBLER_GRAPH_H

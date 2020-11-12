@@ -60,12 +60,13 @@ void DeBruijnGraphAlt::set_sequence( std::string &&sequence ) {
     m_sequence = sequence;
 }
 
-size_t DeBruijnGraphAlt::find_or_create_node( std::string_view kmer ) {
+size_t DeBruijnGraphAlt::find_or_create_node( std::string_view kmer, std::optional<Hash> hashOpt ) {
     size_t index;
-    const auto it = m_kmerMap.find( std::hash<std::string_view>{}( kmer ) );
+    auto hash = hashOpt.value_or( std::hash<std::string_view>{}( kmer ) );
+    const auto it = m_kmerMap.find( hash );
 
     if ( it == m_kmerMap.end() ) {
-        index = create_node( kmer );
+        index = create_node( kmer, hash );
     } else {
         index = it->second;
     }
@@ -73,12 +74,12 @@ size_t DeBruijnGraphAlt::find_or_create_node( std::string_view kmer ) {
     return index;
 }
 
-size_t DeBruijnGraphAlt::create_node( std::string_view kmer ) {
+size_t DeBruijnGraphAlt::create_node( std::string_view kmer, Hash hash ) {
     auto index = m_kmer.size();
 
-    m_kmerMap[std::hash<std::string_view>{}( kmer )] = index;
-
+    m_kmerMap[hash] = index;
     m_kmer.emplace_back( kmer );
+    m_kmerHashes.emplace_back( hash );
     m_edgesIn.emplace_back();
     m_edgesOut.emplace_back();
     m_mergedWith.emplace_back( NotMerged );
@@ -163,8 +164,14 @@ DeBruijnGraphAlt DeBruijnGraphAlt::create( std::string &&sequence, size_t kmerLe
         }
     }
 
-    // TODO merge
-    return std::move( subGraphs.front() );
+    auto graph = std::move( subGraphs.front() );
+
+    for( size_t i = 1; i < subGraphs.size(); i++ ) {
+        spdlog::info("What is this?");
+        graph.merge_graph( subGraphs[i] );
+    }
+
+    return graph;
 }
 
 bool DeBruijnGraphAlt::is_eulerian() const {
@@ -178,44 +185,6 @@ bool DeBruijnGraphAlt::has_eulerian_walk() const {
 bool DeBruijnGraphAlt::has_eulerian_cycle() const {
     return m_hasEulerianCycle;
 }
-
-/*
-std::future<std::unique_ptr<DeBruijnGraphAlt>> DeBruijnGraphAlt::merge( std::unique_ptr<DeBruijnGraphAlt> graph_to_merge
-) {
-
-    // Highest index in "merged onto" graph
-    auto index = m_kmer.size();
-    int counter = 0;
-    for ( const auto &currentNode : graph_to_merge->m_kmerMap ) {
-
-        auto kmerToAdd = m_kmerMap.find( currentNode.first );
-        if ( kmerToAdd != m_kmerMap.end() ) {
-            // Add edges
-            auto inEdgesToAdd = graph_to_merge->m_edgesIn[currentNode.second];
-            auto outEdgesToAdd = graph_to_merge->m_edgesOut[currentNode.second];
-            m_edgesOut[kmerToAdd->second].insert( outEdgesToAdd.begin(), outEdgesToAdd.end(),
-                                                  outEdgesToAdd.begin() );
-            m_edgesIn[kmerToAdd->second].insert( inEdgesToAdd.begin(), inEdgesToAdd.end(), inEdgesToAdd.begin() );
-            // copy edges onto us
-        } else {
-            // If we dont find entry with the same hash, we add it
-            // and add the max Index tour the right index, so that its stays unique
-            // TODO But I think it will fuck up the vector
-            m_kmerMap[kmerToAdd->first] = index + counter;
-            // Add edges
-            auto inEdgesToAdd = graph_to_merge->m_edgesIn[currentNode.second];
-            auto outEdgesToAdd = graph_to_merge->m_edgesOut[currentNode.second];
-            m_edgesOut[kmerToAdd->second].insert( outEdgesToAdd.begin(), outEdgesToAdd.end(),
-                                                  outEdgesToAdd.begin() );
-            m_edgesIn[kmerToAdd->second].insert( inEdgesToAdd.begin(), inEdgesToAdd.end(), inEdgesToAdd.begin() );
-            // add the string view
-            m_kmer.push_back( graph_to_merge->m_kmer[kmerToAdd->second] );
-
-            ++counter;
-        }
-    }
-}
-*/
 
 std::vector<size_t> DeBruijnGraphAlt::get_euler_path() const {
     // stack St;
@@ -268,4 +237,24 @@ void DeBruijnGraphAlt::toDot( const std::string &filename ) const {
 
     file << "}";
     file.close();
+}
+
+void DeBruijnGraphAlt::merge_graph( const DeBruijnGraphAlt &otherGraph ) {
+    for ( const auto &altKmerNode : otherGraph.m_kmerMap ) {
+        auto const &hash = altKmerNode.first;
+        auto const &altKmerId = altKmerNode.first;
+        auto const& kmer = otherGraph.m_kmer[altKmerId];
+
+        // add node from other graph to this graph
+        auto const kmerId = find_or_create_node( kmer, hash );
+
+        // add all outgoing edges
+        for ( const auto &altTargetKmerId : otherGraph.m_edgesOut[altKmerId] ) {
+            auto const &targetKmer = otherGraph.m_kmer[altTargetKmerId];
+            auto const &targetHash = otherGraph.m_kmerHashes[altTargetKmerId];
+            auto const targetKmerId = find_or_create_node( targetKmer, targetHash );
+            m_edgesOut[kmerId].push_back( targetKmerId );
+            m_edgesIn[targetKmerId].push_back( kmerId );
+        }
+    }
 }
