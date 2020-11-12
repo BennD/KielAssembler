@@ -242,7 +242,7 @@ void DeBruijnGraphAlt::toDot( const std::string &filename ) const {
 void DeBruijnGraphAlt::merge_graph( const DeBruijnGraphAlt &otherGraph ) {
     for ( const auto &altKmerNode : otherGraph.m_kmerMap ) {
         auto const &hash = altKmerNode.first;
-        auto const &altKmerId = altKmerNode.first;
+        auto const &altKmerId = altKmerNode.second;
         auto const& kmer = otherGraph.m_kmer[altKmerId];
 
         // add node from other graph to this graph
